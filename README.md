@@ -1,4 +1,4 @@
-<img align="right" width="250" height="47" src="gematik_logo.png"/> <br/> 
+<img align="right" width="250" height="47" src="docs/img/gematik_logo.png"/> <br/> 
 
 # ISIK Sicherheit Stufe 3 Test Suite
 
