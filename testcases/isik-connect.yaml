@@ -1,0 +1,2 @@
+env:
+  fhir-server-full-url: "${user.env.fhir-server-base-url}${user.env.fhir-server-path}"
