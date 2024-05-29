@@ -1,0 +1,34 @@
+env:
+  fhir-server-base-url: http://localhost:8080
+  fhir-server-path: /fhir
+
+testresources:
+  patient-id-in-context: "85"
+  patient-id-not-in-context: "355"
+  encounter-id-in-context: "333"
+  encounter-id-not-in-context: "666"
+
+authz-credentials:
+  asym-client-id: ""
+  asym-client-jwt-key: |
+    {
+    "keys":
+      [
+        {
+          "kty": "RSA",
+          "alg": "RS384",
+          "n": "",
+          "e": "AQAB",
+          "d": "",
+          "p": "",
+          "q": "",
+          "dp": "",
+          "dq": "",
+          "qi": "",
+          "key_ops": [
+            "sign"
+          ],
+          "ext": true,
+          "kid": ""
+        }]
+    }

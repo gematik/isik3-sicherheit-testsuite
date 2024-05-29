@@ -1,0 +1,183 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>de.gematik.isik</groupId>
+  <artifactId>tiger-isik-connect</artifactId>
+  <version>0.1.0</version>
+  <packaging>pom</packaging>
+
+  <name>ISIK Sicherheit Stufe 3 Test Suite</name>
+  <url>https://github.com/gematik/isik3-sicherheit-testsuite</url>
+  <description>A test suite for conformance tests according to the ISIK Sicherheit Stufe 3 specification (https://simplifier.net/guide/isik-sicherheit-v3?version=current)</description>
+  <scm>
+    <url>https://github.com/gematik/isik3-sicherheit-testsuite</url>
+    <connection>scm:git:https://github.com/gematik/isik3-sicherheit-testsuite.git</connection>
+    <developerConnection>scm:git:ssh://git@github.com:gematik/isik3-sicherheit-testsuite.git</developerConnection>
+  </scm>
+
+  <issueManagement>
+    <system>GitHub</system>
+    <url>https://github.com/gematik/PROJECT/issues</url>
+  </issueManagement>
+
+  <organization>
+    <name>gematik GmbH</name>
+    <url>https://www.gematik.de</url>
+  </organization>
+
+  <licenses>
+    <license>
+      <name>Apache License 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <name>gematik</name>
+      <email>software-development@gematik.de</email>
+      <url>https://gematik.github.io/</url>
+      <organization>gematik GmbH</organization>
+      <organizationUrl>https://www.gematik.de/</organizationUrl>
+    </developer>
+  </developers>
+
+  <modules>
+    <module>hspc-java-client</module>
+    <module>testcases</module>
+  </modules>
+
+  <properties>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <tiger.version>3.0.4</tiger.version>
+    <tiger-cloud-extension.version>1.0.10</tiger-cloud-extension.version>
+    <tiger-on-fhir.version>1.2.1</tiger-on-fhir.version>
+    <serenity.version>3.3.10</serenity.version>
+    <cucumber.version>7.15.0</cucumber.version>
+    <junit5.version>5.9.3</junit5.version>
+    <spotless-maven-plugin.version>2.43.0</spotless-maven-plugin.version>
+    <spotless.google-java-format.version>1.22.0</spotless.google-java-format.version>
+    <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
+    <maven-failsafe-plugin.version>3.2.5</maven-failsafe-plugin.version>
+    <junit-platform-suite.version>1.10.2</junit-platform-suite.version>
+    <version.maven-enforcer-plugin>3.4.1</version.maven-enforcer-plugin>
+    <version.slf4j-api>2.0.12</version.slf4j-api>
+    <version.slf4j-log4j>2.0.12</version.slf4j-log4j>
+    <version.log4j2>2.23.1</version.log4j2>
+    <version.lombok>1.18.32</version.lombok>
+    <spark-core.version>2.9.4</spark-core.version>
+    <version.maven-assembly-plugin>3.7.1</version.maven-assembly-plugin>
+    <hapi.version>6.6.2</hapi.version>
+    <sonar.coverage.jacoco.xmlReportPaths>**/site/jacoco-it/jacoco.xml,**/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+    <jacoco.version>0.8.12</jacoco.version>
+    <exec-maven-plugin.version>3.2.0</exec-maven-plugin.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+      <version>${version.lombok}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless-maven-plugin.version}</version>
+        <configuration>
+          <formats>
+            <!-- you can define as many formats as you want, each is independent -->
+            <format>
+              <!-- define the files to apply to -->
+              <includes>
+                <include>**/*.yml</include>
+              </includes>
+              <excludes>
+                <exclude>**/target/**/*</exclude>
+                <exclude>inferno-reference-server/**</exclude>
+              </excludes>
+              <!-- define the steps to apply to those files -->
+              <trimTrailingWhitespace/>
+              <endWithNewline/>
+              <indent>
+                <spaces>true</spaces>
+                <spacesPerTab>2</spacesPerTab>
+              </indent>
+            </format>
+          </formats>
+          <java>
+            <includes>
+              <include>testcases/**/*.java</include>
+            </includes>
+            <toggleOffOn/>
+            <licenseHeader>
+              <file>LICENSE-HEADER</file>
+            </licenseHeader>
+          </java>
+          <groovy>
+            <includes>
+              <include>**/*.jenkinsfile</include>
+            </includes>
+            <importOrder/>
+          </groovy>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>${version.maven-enforcer-plugin}</version>
+        <executions>
+          <execution>
+            <id>enforce-maven</id>
+            <phase>process-sources</phase>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <banDuplicatePomDependencyVersions/>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+    <defaultGoal>clean install</defaultGoal>
+  </build>
+
+  <profiles>
+    <profile>
+      <id>local</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <tiger-configuration-yaml>tiger.yaml</tiger-configuration-yaml>
+      </properties>
+    </profile>
+    <profile>
+      <id>dev</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <tiger-configuration-yaml>tiger-dev.yaml</tiger-configuration-yaml>
+      </properties>
+    </profile>
+    <profile>
+      <id>jenkins</id>
+      <activation>
+        <activeByDefault>false</activeByDefault>
+      </activation>
+      <properties>
+        <tiger-configuration-yaml>tiger-ci.yaml</tiger-configuration-yaml>
+      </properties>
+    </profile>
+  </profiles>
+</project>

@@ -1,0 +1,3 @@
+# HSPC Java Client library #
+
+This is a modified version of the [HSPC Java Client library](https://bitbucket.org/hspconsortium/java-client/src/develop/), which can be used to connect to a FHIR resource server using the SMART OAuth2/OpenID Connect security protocols. The original library seems to be not maintained anymore, so some of the original source code files have been copied and modified to be compatible with the dependencies of the Tiger framework. The original library is distributed under the [Apache License 2.0](LICENSE.txt).

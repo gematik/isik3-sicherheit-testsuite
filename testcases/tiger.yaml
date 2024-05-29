@@ -1,0 +1,44 @@
+tigerProxy:
+  proxyRoutes:
+    - from: /auth-server-response
+      to: "http://localhost:10080/auth-server-response"
+    - from: /favicon.ico
+      to: "http://localhost:10080/favicon.ico"
+
+servers:
+  resourceserver:
+    type: externalUrl
+    source:
+      - "${isik.env.fhir-server-full-url}"
+
+  authzCallbackReceiver:
+    type: zion
+    zionConfiguration:
+      serverPort: 10080
+      mockResponses:
+        favicon:
+          requestCriterions:
+            - message.method == 'GET'
+            - message.path == '/favicon.ico'
+          response:
+            statusCode: 404
+        helloWorld:
+          requestCriterions:
+            - message.method == 'GET'
+            - message.path == '/auth-server-response'
+          response:
+            statusCode: 200
+            body: "{'result':'Response from authorization server received. You may close this window now.'}"
+
+lib:
+  activateWorkflowUi: true
+
+additionalYamls:
+  - filename: isik-connect.yaml
+    baseKey: isik
+  - filename: user-settings.yaml
+    baseKey: user
+
+rbel:
+  request:
+    timeout: "60"

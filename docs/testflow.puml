@@ -1,0 +1,27 @@
+@startuml
+
+participant "ISIK Stufe 3 Sicherheit Test Suite" as testClient
+box "ISIK Stufe 3 Sicherheit-capable product"
+  participant "Resource server (System under Test)" as fhirServer
+  participant "Authorization server" as autz
+end box
+actor "Product administrator" as user
+
+group Preparation
+user --> fhirServer : store test resources
+user --> autz : register the test suite as client, configuration of credentials and permissions
+user --> testClient: set endpoints, client credentials, test resource ids
+end
+
+group Test case run
+user --> testClient : start a test case
+testClient --> fhirServer : retrieve SMART configuration resource
+testClient --> autz : request authorization code incl. context resources by opening a browser window
+autz <--> user : authentication
+user --> autz : selection of test resources as context, grant permissions
+autz --> testClient : callback with authorization code
+testClient <--> autz : exchange of authorization code agains an access code
+testClient --> fhirServer : request test resource
+end
+
+@enduml
