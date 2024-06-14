@@ -15,57 +15,46 @@ limitations under the License.
 */
 package de.gematik.isik.connect.access;
 
-import ca.uhn.fhir.rest.client.api.IRestfulClientFactory;
-import com.nimbusds.jose.jwk.JWKSet;
-import com.nimbusds.jose.jwk.RSAKey;
 import de.gematik.test.tiger.common.config.TigerGlobalConfiguration;
+import de.gematik.test.tiger.lib.TigerDirector;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.hspconsortium.client.auth.Scopes;
 import org.hspconsortium.client.auth.SimpleScope;
 import org.hspconsortium.client.auth.access.JsonAccessTokenProvider;
-import org.hspconsortium.client.auth.credentials.JWTCredentials;
 import org.hspconsortium.client.controller.FhirEndpointsProvider;
-import org.hspconsortium.client.session.ApacheHttpClientFactory;
 import org.hspconsortium.client.session.clientcredentials.ClientCredentialsAccessTokenRequest;
 
+import javax.net.ssl.SSLContext;
 import java.util.Arrays;
-import java.util.UUID;
 
 @Slf4j
 public class BackendServiceAccessTokenRequest {
+
+    private final TigerConfigurationBasedJwtCredentialsProvider jwtCredentialsProvider = new TigerConfigurationBasedJwtCredentialsProvider();
 
     @SneakyThrows
     public String requestAccessCode(String scopes) {
         String fhirServerUrl = TigerGlobalConfiguration.readString("isik.env.fhir-server-full-url");
         String clientId = TigerGlobalConfiguration.readString("user.authz-credentials.asym-client-id");
         String jwt = TigerGlobalConfiguration.readString("user.authz-credentials.asym-client-jwt-key");
+        var tigerProxy = TigerDirector.getTigerTestEnvMgr()
+                .getLocalTigerProxyOptional().get();
+        SSLContext sslContext = tigerProxy.getConfiguredTigerProxySslContext();
 
-        String proxyHost = System.getProperty("http.proxyHost");
-        Integer proxyPort = System.getProperty("http.proxyPort") != null ? Integer.parseInt(System.getProperty("http.proxyPort")) : null;
-        if(proxyHost != null && proxyPort != null)
-            log.debug("Using proxy: {}:{}",proxyHost, proxyPort);
+        var tigerProxyHost = "localhost";
+        var tigerProxyPort = TigerGlobalConfiguration.readIntegerOptional("tiger.tigerProxy.proxyPort").get();
 
-        FhirEndpointsProvider fhirEndpointsProvider = new SmartCapabilitiesBasedEndpointsProvider();
+        FhirEndpointsProvider fhirEndpointsProvider = new SmartCapabilitiesBasedEndpointsProvider(tigerProxyHost, tigerProxyPort, sslContext);
         var endpoints = fhirEndpointsProvider.getEndpoints(fhirServerUrl);
-
-        JWKSet jwks = JWKSet.parse(jwt);
-        RSAKey rsaKey = (RSAKey) jwks.getKeys().get(0);
-        JWTCredentials jwtCredentials = new JWTCredentials(rsaKey.toRSAPrivateKey());
-
-        jwtCredentials.setIssuer(clientId);
-        jwtCredentials.setSubject(clientId);
-        jwtCredentials.setAudience("http://localhost:8080/reference-server/r4");
-        jwtCredentials.setTokenReference(UUID.randomUUID().toString());
-        jwtCredentials.setDuration(60L*60*24); // 1 day
+        String tokenEndpoint = endpoints.getTokenEndpoint();
+        var jwtCredentials = jwtCredentialsProvider.generateFor(tokenEndpoint);
 
         Scopes requestedScopes = new Scopes();
         Arrays.stream(scopes.split(" ")).forEach(s -> requestedScopes.add(new SimpleScope(s)));
         var tokenRequest = new ClientCredentialsAccessTokenRequest<>(clientId, jwtCredentials, requestedScopes);
-
-        var accessTokenProvider = new JsonAccessTokenProvider(new ApacheHttpClientFactory(proxyHost, proxyPort, null, null,
-                IRestfulClientFactory.DEFAULT_CONNECT_TIMEOUT, IRestfulClientFactory.DEFAULT_CONNECTION_REQUEST_TIMEOUT));
-        var accessToken = accessTokenProvider.getAccessToken(endpoints.getTokenEndpoint(), tokenRequest);
+        var accessTokenProvider = new JsonAccessTokenProvider(tigerProxyHost, tigerProxyPort, sslContext);
+        var accessToken = accessTokenProvider.getAccessToken(tokenEndpoint, tokenRequest);
         log.info("Access token: {}", accessToken.getValue());
 
         return accessToken.getValue();

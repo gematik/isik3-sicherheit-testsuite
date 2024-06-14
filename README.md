@@ -39,7 +39,7 @@ To run the test suite you need the following components:
 
 1. This test suite, which you can get either by cloning this repository or downloading the latest release.
 2. An ISIK resource server (System under Test, SUT) that is compliant with the ISIK Sicherheit Stufe 3 specification.
-3. An authorization server, which is compliant with the ISIK Sicherheit Stufe 3 specification. The authorization server is required to obtain access tokens with various scopes as required by the test cases. The authorization server should support _confidential asymetric_ client authentication and the [SMART Standalone Launch flow](https://build.fhir.org/ig/HL7/smart-app-launch/app-launch.html#step-2-launch-standalone).   
+3. An authorization server, which is compliant with the ISIK Sicherheit Stufe 3 specification. The authorization server is required to obtain access tokens with various scopes as required by the test cases. The authorization server should support _confidential asymetric_ client authentication and the [SMART Standalone Launch flow](https://build.fhir.org/ig/HL7/smart-app-launch/app-launch.html#step-2-launch-standalone). Within the Standalone Launch flow the authorization server should respect launch/patient and launch/encounter scope parameters and issue access tokens with the requested context information.
 4. Test resources within the resource server to be used in the tests (see [Installation](#installation)) 
 5. Test configuration within the authorization server to be used for client authentication (test suite acts as a client).
 
@@ -105,6 +105,8 @@ authz-credentials:
     }
 ```
 
+Make sure the client ID and the corresponding public key are known to the authorization server. The authorization server should grant the client any requested resource access for **system**-Level scopes.   
+
 ## Usage
 
 To start one or several particular test cases run `mvn verify -Dcucumber.filter.tags="@TEST_NAME1 or @TEST_NAME2"`, e.g. `mvn verify -Dcucumber.filter.tags="@EncounterContext or @PatientLevelScope"`. To start the complete test suite run `mvn verify`. 
@@ -116,6 +118,10 @@ Some test cases require user interaction and open a new browser window. This is 
 The following diagram shows the test case execution flow:
 
 ![Test case execution flow](docs/img/testflow.png)
+
+## Known limitations
+
+The requirements on the authorization server may limit the applicability scope of this test suite. Please contact us in case your authorization server does not meet the requirements. 
 
 ## Contributing
 If you want to contribute, please check our [CONTRIBUTING.md](./CONTRIBUTING.md).

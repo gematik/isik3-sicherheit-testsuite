@@ -20,11 +20,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class UserLevelAccessCodeRequest {
 
+    public static final String SCOPES = "user/Patient.rs openid fhirUser";
+
     SMARTAccessCodeRequest smartAccessCodeRequest = new SMARTAccessCodeRequest();
 
     public String requestAccessCode() {
         return smartAccessCodeRequest.requestAccessCodeFor(
-                "user/Patient.rs openid fhirUser",
+                SCOPES,
                 null,
                 null);
     }

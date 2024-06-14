@@ -13,7 +13,6 @@ Feature: Access to resource within patient and encounter context
     Then TGR current response with attribute "$.responseCode" matches "200"
     Then FHIR current response body evaluates the FHIRPath "Bundle.entry.where(resource is Condition).count() > 0"
     Then evaluate FHIRPath "Bundle.entry.where(resource is Condition).count()" on current response body and store result in variable "overall-number-of-patient-conditions"
-
     Then TGR send empty GET request to "${isik.env.fhir-server-full-url}/Condition" with headers:
       | Accept    | application/fhir+json |
       | Authorization | Bearer ${access-code-encounter-allowed} |
@@ -34,8 +33,8 @@ Feature: Access to resource within patient and encounter context
     Then TGR find the last request
     Then TGR current response with attribute "$.responseCode" matches "200"
     Then FHIR current response body evaluates the FHIRPath "Bundle.entry.where(resource is Condition).count() > 0"
-    Then evaluate FHIRPath "Bundle.entry.where(resource is Condition).first().resource.id" on current response body and store result in variable "id-of-condition-of-encounter-not-in-context"
-    Then TGR send empty GET request to "${isik.env.fhir-server-full-url}/Condition/${id-of-condition-of-encounter-not-in-context}" with headers:
+    Then evaluate FHIRPath "Bundle.entry.where(resource is Condition).first().fullUrl" on current response body and store result in variable "fullUrl-of-condition-of-encounter-not-in-context"
+    Then TGR send empty GET request to "${fullUrl-of-condition-of-encounter-not-in-context}" with headers:
       | Accept    | application/fhir+json |
       | Authorization | Bearer ${access-code-encounter-allowed} |
     Then TGR find the last request

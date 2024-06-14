@@ -25,42 +25,35 @@ package org.hspconsortium.client.auth.access;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import lombok.AllArgsConstructor;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpRequest;
-import org.apache.http.NameValuePair;
-import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.util.EntityUtils;
 import org.hspconsortium.client.auth.credentials.ClientSecretCredentials;
 import org.hspconsortium.client.auth.credentials.Credentials;
 import org.hspconsortium.client.auth.credentials.JWTCredentials;
 import org.hspconsortium.client.auth.validation.IdTokenValidator;
-import org.hspconsortium.client.session.ApacheHttpClientFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
+import javax.net.ssl.SSLContext;
+import java.net.InetSocketAddress;
+import java.net.ProxySelector;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.Map;
 
+@AllArgsConstructor
+@Slf4j
 public class JsonAccessTokenProvider implements AccessTokenProvider<JsonAccessToken> {
     private static final Logger LOGGER = LoggerFactory.getLogger(JsonAccessTokenProvider.class);
 
-    private final ApacheHttpClientFactory apacheHttpClientFactory;
-
-    public JsonAccessTokenProvider(ApacheHttpClientFactory apacheHttpClientFactory) {
-        this.apacheHttpClientFactory = apacheHttpClientFactory;
-    }
+    private String proxyHost;
+    private Integer proxyPort;
+    private SSLContext sslContext;
 
     private final IdTokenValidator idTokenValidator = new IdTokenValidator.Impl();
 
@@ -69,13 +62,7 @@ public class JsonAccessTokenProvider implements AccessTokenProvider<JsonAccessTo
         String clientId = request.getClientId();
         Credentials<?> clientSecretCredentials = request.getCredentials();
 
-        List<NameValuePair> paramPairs = new ArrayList<>();
-        Map<String, String> parameters = request.getParameters();
-        if (parameters != null) {
-            for (String param : parameters.keySet()) {
-                paramPairs.add(new BasicNameValuePair(param, parameters.get(param)));
-            }
-        }
+        Map<String, String> paramPairs = request.getParameters();
 
         JsonObject rootResponse = post(tokenEndpointUrl, clientId, clientSecretCredentials, paramPairs);
         JsonAccessToken jsonAccessToken = buildAccessToken(rootResponse, null);
@@ -95,19 +82,33 @@ public class JsonAccessTokenProvider implements AccessTokenProvider<JsonAccessTo
 
     @Override
     public JsonAccessToken refreshAccessToken(String tokenEndpointUrl, AccessTokenRequest request, AccessToken accessToken) {
-        String clientId = request.getClientId();
-        Credentials<?> clientSecretCredentials = request.getCredentials();
-
-        JsonObject rootResponse = post(tokenEndpointUrl, clientId, clientSecretCredentials, accessToken.asNameValuePairList());
-        return buildAccessToken(rootResponse, new String[]{});
+//        String clientId = request.getClientId();
+//        Credentials<?> clientSecretCredentials = request.getCredentials();
+//
+//        JsonObject rootResponse = post(tokenEndpointUrl, clientId, clientSecretCredentials, accessToken.asNameValuePairList());
+//        return buildAccessToken(rootResponse, new String[]{});
+        throw new RuntimeException("Not implemented");
     }
 
     @Override
+    @SneakyThrows
     public UserInfo getUserInfo(String userInfoEndpointUrl, JsonAccessToken jsonAccessToken) {
-        HttpGet getRequest = new HttpGet(userInfoEndpointUrl);
-        getRequest.addHeader("Content-Type", "application/x-www-form-urlencoded");
-        getRequest.addHeader("Authorization", String.format("Bearer %s", jsonAccessToken.getValue()));
-        JsonObject jsonObject = processRequest(getRequest);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(new URI(userInfoEndpointUrl))
+                .header("Authorization", String.format("Bearer %s", jsonAccessToken.getValue()))
+                .GET()
+                .build();
+
+        HttpClient.Builder builder = HttpClient.newBuilder();
+        HttpResponse<String> response = builder
+                .proxy(proxyPort == null ? ProxySelector.getDefault() : ProxySelector.of(new InetSocketAddress(proxyHost, proxyPort)))
+                .connectTimeout(Duration.ofSeconds(60))
+                .sslContext(sslContext)
+                .version(HttpClient.Version.HTTP_1_1)
+                .build()
+                .send(request, HttpResponse.BodyHandlers.ofString());
+
+        JsonObject jsonObject = JsonParser.parseString(response.body()).getAsJsonObject();
 
         return buildUserInfo(jsonObject);
     }
@@ -140,69 +141,51 @@ public class JsonAccessTokenProvider implements AccessTokenProvider<JsonAccessTo
         );
     }
 
-    protected JsonObject post(String serviceUrl, String clientId, Credentials clientCredentials, List<NameValuePair> transferParams) {
-        HttpPost postRequest = new HttpPost(serviceUrl);
-        postRequest.addHeader("Content-Type", "application/x-www-form-urlencoded");
+    @SneakyThrows
+    protected JsonObject post(String serviceUrl, String clientId, Credentials clientCredentials, Map<String, String> transferParams) {
+        var httpRequestBuilder = java.net.http.HttpRequest.newBuilder()
+                .uri(new URI(serviceUrl))
+                .header("Content-Type", "application/x-www-form-urlencoded");
 
         if (clientCredentials instanceof ClientSecretCredentials) {
             Object credentialsObj = clientCredentials.getCredentials();
             if (credentialsObj instanceof String credentialsStr) {
                 if (StringUtils.isNotBlank(clientId) && StringUtils.isNotBlank(credentialsStr)) {
-                    setAuthorizationHeader(postRequest, clientId, credentialsStr);
+                    setAuthorizationHeader(httpRequestBuilder, clientId, credentialsStr);
                 } else {
                     throw new RuntimeException("Confidential client authorization requires clientId and client secret.");
                 }
             } else {
                 throw new IllegalArgumentException("Credentials not supported");
             }
-        } else if (clientCredentials instanceof JWTCredentials) {
-            ((JWTCredentials) clientCredentials).setAudience(serviceUrl);
+        } else if (clientCredentials instanceof JWTCredentials jwtCredentials) {
+            jwtCredentials.setAudience(serviceUrl);
         } else {
             throw new IllegalArgumentException("Credentials type not supported");
         }
 
-        try {
-            postRequest.setEntity(new UrlEncodedFormEntity(transferParams));
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
-        }
-        return processRequest(postRequest);
+        httpRequestBuilder = httpRequestBuilder.POST(HttpRequest.BodyPublishers.ofString(transferParams.entrySet().stream()
+                .map(p -> p.getKey() + "=" + p.getValue())
+                .reduce((p1, p2) -> p1 + "&" + p2)
+                .orElse("")));
+
+        HttpResponse<String> response = HttpClient.newBuilder()
+                .proxy(proxyPort == null ? ProxySelector.getDefault() : ProxySelector.of(new InetSocketAddress(proxyHost, proxyPort)))
+                .connectTimeout(Duration.ofSeconds(60))
+                .sslContext(sslContext)
+                .version(HttpClient.Version.HTTP_1_1)
+                .build()
+                .send(httpRequestBuilder.build(), HttpResponse.BodyHandlers.ofString());
+
+        log.info("Authz server returned: " + response.body());
+
+        return JsonParser.parseString(response.body()).getAsJsonObject();
     }
 
-    protected static void setAuthorizationHeader(HttpRequest request, String clientId, String clientSecret) {
+    protected static void setAuthorizationHeader(HttpRequest.Builder request, String clientId, String clientSecret) {
         String authHeader = String.format("%s:%s", clientId, clientSecret);
         String encoded = new String(org.apache.commons.codec.binary.Base64.encodeBase64(authHeader.getBytes()));
-        request.addHeader("Authorization", String.format("Basic %s", encoded));
-    }
-
-    protected JsonObject processRequest(HttpUriRequest request) {
-        CloseableHttpClient httpClient = apacheHttpClientFactory.getClient();
-        CloseableHttpResponse response = null;
-        try {
-            response = httpClient.execute(request);
-            System.out.println(response.getStatusLine());
-
-            if (response.getStatusLine().getStatusCode() != 200) {
-                HttpEntity entity = response.getEntity();
-                String responseString = EntityUtils.toString(entity, StandardCharsets.UTF_8);
-                throw new RuntimeException(String.format("There was a problem attempting to get the user info.\nResponse Status : %s .\nResponse Detail :%s."
-                        , response.getStatusLine()
-                        , responseString));
-            }
-
-            JsonParser parser = new JsonParser();
-            return (JsonObject) parser.parse(new InputStreamReader(response.getEntity().getContent()));
-        } catch (IOException io_ex) {
-            throw new RuntimeException("There was a problem attempting to get the access token", io_ex);
-        } finally {
-            if (response != null) {
-                try {
-                    response.close();
-                } catch (IOException e) {
-                    LOGGER.error("Error closing response", e);
-                }
-            }
-        }
+        request.header("Authorization", String.format("Basic %s", encoded));
     }
 
     protected String getResponseElement(String elementKey, JsonObject rootResponse) {

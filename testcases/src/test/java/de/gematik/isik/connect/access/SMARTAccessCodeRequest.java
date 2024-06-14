@@ -16,11 +16,11 @@ limitations under the License.
 package de.gematik.isik.connect.access;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.rest.client.api.IRestfulClientFactory;
 import de.gematik.isik.connect.browser.BrowserOpener;
 import de.gematik.isik.connect.browser.DebugAutomatedBrowserOpener;
 import de.gematik.isik.connect.browser.DesktopBrowserOpener;
 import de.gematik.test.tiger.common.config.TigerGlobalConfiguration;
+import de.gematik.test.tiger.lib.TigerDirector;
 import de.gematik.test.tiger.lib.rbel.RbelMessageValidator;
 import de.gematik.test.tiger.lib.rbel.RequestParameter;
 import lombok.Getter;
@@ -31,13 +31,14 @@ import org.hspconsortium.client.auth.access.AccessToken;
 import org.hspconsortium.client.auth.access.JsonAccessTokenProvider;
 import org.hspconsortium.client.auth.authorizationcode.AuthorizationCodeRequest;
 import org.hspconsortium.client.auth.authorizationcode.AuthorizationCodeRequestBuilder;
-import org.hspconsortium.client.auth.credentials.ClientSecretCredentials;
-import org.hspconsortium.client.session.ApacheHttpClientFactory;
+import org.hspconsortium.client.auth.credentials.Credentials;
 import org.hspconsortium.client.session.SessionKeyRegistry;
 import org.hspconsortium.client.session.authorizationcode.AuthorizationCodeAccessTokenRequest;
 import org.hspconsortium.client.session.authorizationcode.AuthorizationCodeSessionFactory;
 import org.hspconsortium.client.session.impl.SimpleFhirSessionContextHolder;
+import org.jetbrains.annotations.NotNull;
 
+import javax.net.ssl.SSLContext;
 import java.net.InetSocketAddress;
 import java.net.ProxySelector;
 import java.net.URI;
@@ -50,9 +51,8 @@ import java.time.Duration;
 
 @Slf4j
 public class SMARTAccessCodeRequest {
-    public static final String SAMPLE_CONFIDENTIAL_CLIENT_ID = "SAMPLE_CONFIDENTIAL_CLIENT_ID";
-    public static final ClientSecretCredentials SAMPLE_CONFIDENTIAL_CLIENT_SECRET = new ClientSecretCredentials("SAMPLE_CONFIDENTIAL_CLIENT_SECRET");
-    private final AuthorizationCodeSessionFactory<ClientSecretCredentials> authorizationCodeSessionFactory;
+    private final AuthorizationCodeSessionFactory<Credentials> authorizationCodeSessionFactory;
+    private final SSLContext sslContext;
     private AuthorizationCodeRequest authorizationCodeRequest;
     @Getter
     private String accessCode;
@@ -60,13 +60,18 @@ public class SMARTAccessCodeRequest {
     private String redirectUrl;
     private final Integer tigerProxyPort;
     private final String tigerProxyHost;
+    private final TigerConfigurationBasedJwtCredentialsProvider jwtCredentialsProvider = new TigerConfigurationBasedJwtCredentialsProvider();
 
     public SMARTAccessCodeRequest() {
         tigerProxyHost = "localhost";
         tigerProxyPort = TigerGlobalConfiguration.readIntegerOptional("tiger.tigerProxy.proxyPort").get();
         authorizationCodeSessionFactory = createAuthorizationCodeSessionFactory(FhirContext.forR4());
-        accessTokenProvider = new JsonAccessTokenProvider(new ApacheHttpClientFactory(tigerProxyHost, tigerProxyPort, null, null,
-                IRestfulClientFactory.DEFAULT_CONNECT_TIMEOUT, IRestfulClientFactory.DEFAULT_CONNECTION_REQUEST_TIMEOUT));
+
+        var tigerProxy = TigerDirector.getTigerTestEnvMgr()
+                .getLocalTigerProxyOptional().get();
+        sslContext = tigerProxy.getConfiguredTigerProxySslContext();
+
+        accessTokenProvider = new JsonAccessTokenProvider(tigerProxyHost, tigerProxyPort, sslContext);
     }
 
     @SneakyThrows
@@ -119,6 +124,7 @@ public class SMARTAccessCodeRequest {
         HttpClient.newBuilder()
                 .proxy(ProxySelector.of(new InetSocketAddress(tigerProxyHost, tigerProxyPort)))
                 .connectTimeout(Duration.ofSeconds(60))
+                .version(HttpClient.Version.HTTP_1_1)
                 .build()
                 .send(request, HttpResponse.BodyHandlers.ofString());
     }
@@ -133,45 +139,56 @@ public class SMARTAccessCodeRequest {
     }
 
     private String buildAuthorizationCodeRequestUrl() {
+        String aud = authorizationCodeRequest.getFhirEndpoints().getFhirServiceApi();
+        if(aud.endsWith("/"))
+            aud = aud.substring(0, aud.length()-1); // Unclear if it's a general requirement or an implementation problem of some servers (e.g. Firely)
         return authorizationCodeRequest.getFhirEndpoints().getAuthorizationEndpoint() +
                 "?client_id=" + authorizationCodeRequest.getClientId() +
                 "&response_type=" + authorizationCodeRequest.getResponseType() +
                 "&scope=" + URLEncoder.encode(authorizationCodeRequest.getScopes().asParamValue(), StandardCharsets.UTF_8) +
-                "&redirect_uri=" + URLEncoder.encode(authorizationCodeRequest.getRedirectUri(), StandardCharsets.UTF_8) +
-                "&aud=" + URLEncoder.encode(authorizationCodeRequest.getFhirEndpoints().getFhirServiceApi(), StandardCharsets.UTF_8) +
+                "&redirect_uri=" + URLEncoder.encode(redirectUrl, StandardCharsets.UTF_8) +
+                "&aud=" + URLEncoder.encode(aud, StandardCharsets.UTF_8) +
                 "&state=" + authorizationCodeRequest.getOauthState();
     }
 
     private AuthorizationCodeRequest createAuthorizationCodeRequest(String fhirServerUrl, String scopes) {
-        AuthorizationCodeRequestBuilder authorizationCodeRequestBuilder = new AuthorizationCodeRequestBuilder(new SmartCapabilitiesBasedEndpointsProvider(tigerProxyHost, tigerProxyPort),
+        var fhirEndpointsProvider = new SmartCapabilitiesBasedEndpointsProvider(tigerProxyHost, tigerProxyPort, sslContext);
+        AuthorizationCodeRequestBuilder authorizationCodeRequestBuilder = new AuthorizationCodeRequestBuilder(fhirEndpointsProvider,
                 new StateProvider.DefaultStateProvider()
         );
         return authorizationCodeRequestBuilder
                 .buildStandAloneAuthorizationCodeRequest(
                         fhirServerUrl,
-                        SAMPLE_CONFIDENTIAL_CLIENT_ID,
+                        getClientId(),
                         scopes,
                         redirectUrl);
     }
 
-    private AuthorizationCodeSessionFactory<ClientSecretCredentials> createAuthorizationCodeSessionFactory(FhirContext fhirContext) {
+    private static @NotNull String getClientId() {
+        return TigerGlobalConfiguration.readString("user.authz-credentials.asym-client-id");
+    }
+
+    @SneakyThrows
+    private AuthorizationCodeSessionFactory<Credentials> createAuthorizationCodeSessionFactory(FhirContext fhirContext) {
         return new AuthorizationCodeSessionFactory<>(
                 fhirContext,
                 new SessionKeyRegistry(),
                 "MySessionKey",
                 new SimpleFhirSessionContextHolder(),
                 accessTokenProvider,
-                SAMPLE_CONFIDENTIAL_CLIENT_ID,
-                SAMPLE_CONFIDENTIAL_CLIENT_SECRET,
+                getClientId(),
+                jwtCredentialsProvider.generateFor("UNSET"),
                 "http://example.org/redirectUri"
         );
     }
 
+    @SneakyThrows
     private String exchangeForAccessCode(String authzCode) {
         log.info("Exchanging authorization code against an access code...");
         String tokenEndpoint = authorizationCodeRequest.getFhirEndpoints().getTokenEndpoint();
-        AuthorizationCodeAccessTokenRequest<ClientSecretCredentials> authorizationCodeAccessTokenRequest =
-                new AuthorizationCodeAccessTokenRequest<>(SAMPLE_CONFIDENTIAL_CLIENT_ID, SAMPLE_CONFIDENTIAL_CLIENT_SECRET, authzCode, redirectUrl);
+        var credentials = jwtCredentialsProvider.generateFor(tokenEndpoint);
+        var authorizationCodeAccessTokenRequest =
+                new AuthorizationCodeAccessTokenRequest<>(getClientId(), credentials, authzCode, redirectUrl);
 
         AccessToken accessToken = accessTokenProvider.getAccessToken(tokenEndpoint, authorizationCodeAccessTokenRequest);
 

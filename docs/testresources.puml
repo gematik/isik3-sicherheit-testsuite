@@ -2,8 +2,12 @@
 
 left to right direction
 
+class "User" as User {
+}
 class "Patient" as Patient1 {
     +patient-id-in-context
+}
+class "Patient" as Patient3 {
 }
 class "Encounter" as Encounter11 {
     +encounter-id-in-context
@@ -21,6 +25,9 @@ class "Condition" as ConditionB
 class "Condition" as ConditionC
 class "Condition" as ConditionD
 
+User -- Patient1 : > "has access to"
+User -- Patient2 : > "has access to"
+User .. Patient3 : > "no access to"
 Patient1 o-- Encounter11
 Patient1 o-- Encounter12
 Patient2 o-- Encounter21

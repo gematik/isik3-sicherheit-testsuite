@@ -26,6 +26,7 @@ import org.apache.commons.lang3.Validate;
 import org.hspconsortium.client.auth.access.AbstractAccessTokenRequest;
 import org.hspconsortium.client.auth.access.AccessTokenGrantType;
 import org.hspconsortium.client.auth.credentials.Credentials;
+import org.hspconsortium.client.auth.credentials.JWTCredentials;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -43,6 +44,10 @@ public class AuthorizationCodeAccessTokenRequest<T extends Credentials>
 
         this.tokenRequestParams.put("code", authorizationCode);
         this.tokenRequestParams.put("redirect_uri", redirectUri);
+        if (clientCredentials instanceof JWTCredentials) {
+            this.tokenRequestParams.put("client_assertion_type", "urn:ietf:params:oauth:client-assertion-type:jwt-bearer");
+            this.tokenRequestParams.put("client_assertion", ((JWTCredentials) clientCredentials).getCredentials().serialize());
+        }
     }
 
     @Override
