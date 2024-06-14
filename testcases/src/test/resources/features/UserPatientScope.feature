@@ -19,7 +19,7 @@ Feature: Access to resource server with access-token and user-level scopes
     Then TGR current response with attribute "$.responseCode" matches "40\d"
 
   Scenario: Number of accessible Patient resources is less than total number of patients in the system
-    Given access token for backend service with scope "system/Patient.r" has been requested and issued by authorization server
+    Given access token for backend service with scope "system/Patient.rs" has been requested and issued by authorization server
     When TGR send empty GET request to "${isik.env.fhir-server-full-url}/Patient" with headers:
       | Accept    | application/fhir+json |
       | Authorization | Bearer ${access-code-backend-service} |

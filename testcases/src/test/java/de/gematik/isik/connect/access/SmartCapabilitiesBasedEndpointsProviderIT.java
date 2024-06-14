@@ -15,17 +15,19 @@ limitations under the License.
 */
 package de.gematik.isik.connect.access;
 
-import lombok.extern.slf4j.Slf4j;
+import groovy.util.logging.Slf4j;
+import lombok.SneakyThrows;
+import org.junit.jupiter.api.Test;
+
+import javax.net.ssl.SSLContext;
 
 @Slf4j
-public class EncounterContextAccessCodeRequest {
+public class SmartCapabilitiesBasedEndpointsProviderIT {
 
-    SMARTAccessCodeRequest smartAccessCodeRequest = new SMARTAccessCodeRequest();
-
-    public String requestAccessCode(String patientId, String encounterId) {
-        return smartAccessCodeRequest.requestAccessCodeFor(
-                "patient/Patient.rs patient/Condition.rs launch/patient launch/encounter",
-                patientId,
-                encounterId);
+    @Test
+    @SneakyThrows
+    public void testTls() {
+        var endpoints = new SmartCapabilitiesBasedEndpointsProvider("",null, SSLContext.getDefault()).getEndpoints("https://secure.server.fire.ly");
+        System.out.println(endpoints.getTokenEndpoint());
     }
 }

@@ -24,7 +24,7 @@ public class PatientContextAccessCodeRequest {
 
     public String requestAccessCodeFor(String patientId) {
         return smartAccessCodeRequest.requestAccessCodeFor(
-                "launch patient/Patient.rs patient/Condition.rs launch/patient",
+                "patient/Patient.rs patient/Condition.rs launch/patient",
                 patientId,
                 null);
     }

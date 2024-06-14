@@ -4,15 +4,15 @@ Feature: Access to resource server with access-token and system-level Wildcard s
   Background: Access token with Patient resource scope is requested
     Given access token for backend service with scope "system/*.r" has been requested and issued by authorization server
 
-  Scenario: Access to Patient resources is allowed if Patient resource is in scope
-   When TGR send empty GET request to "${isik.env.fhir-server-full-url}/Patient" with headers:
+  Scenario: Access to Patient resources is allowed
+   When TGR send empty GET request to "${isik.env.fhir-server-full-url}/Patient/${user.testresources.patient-id-in-context}" with headers:
      | Accept    | application/fhir+json |
      | Authorization | Bearer ${access-code-backend-service} |
     Then TGR find the last request
     Then TGR current response with attribute "$.responseCode" matches "200"
 
-  Scenario: Access to Encounter resources is not allowed if Encounter resource is not scope
-    When TGR send empty GET request to "${isik.env.fhir-server-full-url}/Encounter" with headers:
+  Scenario: Access to Encounter resources is allowed
+    When TGR send empty GET request to "${isik.env.fhir-server-full-url}/Encounter/${user.testresources.encounter-id-in-context}" with headers:
       | Accept    | application/fhir+json |
       | Authorization | Bearer ${access-code-backend-service} |
     Then TGR find the last request

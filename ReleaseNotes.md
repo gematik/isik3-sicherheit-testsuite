@@ -2,6 +2,19 @@
 
 # Release Notes ISIK Sicherheit Stufe 3 Test Suite
 
+## Release 0.2.0 (2024-06)
+
+### added
+- support for TLS endpoints
+
+### changed
+- enabled any 40x HTTP response codes on unauthorized access
+- using asymmetric client authentication for all test cases
+
+### fixed
+- usage of aud-parameter in test cases
+- requested scopes and HTTP requests didn't match in some test cases
+
 ## Release 0.1.1 (2024-05)
 
 ### fixed

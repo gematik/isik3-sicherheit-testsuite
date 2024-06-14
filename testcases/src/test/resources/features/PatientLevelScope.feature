@@ -16,10 +16,10 @@ Feature: Access to resource server with access-token
       | Accept    | application/fhir+json |
       | Authorization | Bearer ${access-code-patient-allowed} |
     Then TGR find the last request
-    Then TGR current response with attribute "$.responseCode" matches "401"
+    Then TGR current response with attribute "$.responseCode" matches "40\d"
 
   Scenario: Access to Condition resources of the patient in context is allowed
-    When TGR send empty GET request to "${isik.env.fhir-server-full-url}/Condition?subject=Patient/${user.testresources.patient-id-in-context}" with headers:
+    When TGR send empty GET request to "${isik.env.fhir-server-full-url}/Condition" with headers:
       | Accept    | application/fhir+json |
       | Authorization | Bearer ${access-code-patient-allowed} |
     Then TGR find the last request
@@ -41,8 +41,8 @@ Feature: Access to resource server with access-token
     Then FHIR current response body evaluates the FHIRPath "Bundle.entry.where(resource is Condition).count() = 0"
 
   Scenario: Access to Encounter resources is forbidden if they were not specified in the client authorization request
-    When TGR send empty GET request to "${isik.env.fhir-server-full-url}/Encounter?patient=Patient/${user.testresources.patient-id-in-context}" with headers:
+    When TGR send empty GET request to "${isik.env.fhir-server-full-url}/Encounter" with headers:
       | Accept    | application/fhir+json |
       | Authorization | Bearer ${access-code-patient-allowed} |
     Then TGR find the last request
-    Then TGR current response with attribute "$.responseCode" matches "401"
+    Then TGR current response with attribute "$.responseCode" matches "40\d"
