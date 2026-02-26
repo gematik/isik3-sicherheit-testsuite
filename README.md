@@ -128,7 +128,7 @@ If you want to contribute, please check our [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ## License
 
-Copyright 2024 gematik GmbH
+Copyright 2026 gematik GmbH
 
 Apache License, Version 2.0
 
